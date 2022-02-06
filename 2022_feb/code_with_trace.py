@@ -105,6 +105,17 @@ def poly_conj(v):
         v[i]=-v[i]
     return(v)
 
+def Norm(v,m):   #returns norm over K=Cyclo(2n) of v \in L
+    n=len(v)
+    G=galois_group_relative(n,m)
+
+    p=[1]+(n-1)*[0]
+
+    for g in G:
+        v_=apply_authomorphism(v,g)
+        p=poly_prod_trunc(p,v_,n)
+    return(list(p))
+
 def balance_matrix(M,q):
 
     sh=M.shape
@@ -143,35 +154,35 @@ def to_circ(f,step=1):
         B.append(tmp)
     return np.array(B)
 
-def cyclo_trace_n2(f, div=False):
-    #trace to Cyclo_(n//2) field
-    n=f.shape[0]
-    tmp=np.ndarray(shape=(n),dtype=int)
-    tmp.fill(0)
+# def cyclo_trace_n2(f, div=False):
+#     #trace to Cyclo_(n//2) field
+#     n=f.shape[0]
+#     tmp=np.ndarray(shape=(n),dtype=int)
+#     tmp.fill(0)
+#
+#     if div:
+#         tmp_=[((i+1)%2)*f[i] for i in range(n)]
+#         for i in range(len(tmp_)):
+#             tmp[i]=tmp_[i]
+#     else:
+#         tmp_=[2*((i+1)%2)*f[i] for i in range(n)]
+#         for i in range(len(tmp_)):
+#             tmp[i]=tmp_[i]
+#     return tmp
 
-    if div:
-        tmp_=[((i+1)%2)*f[i] for i in range(n)]
-        for i in range(len(tmp_)):
-            tmp[i]=tmp_[i]
-    else:
-        tmp_=[2*((i+1)%2)*f[i] for i in range(n)]
-        for i in range(len(tmp_)):
-            tmp[i]=tmp_[i]
-    return tmp
-
-def cyclo_norm_n2(f):
-    #norm to Cyclo_(n//2) field
-    nn=f.shape[0]
-    tmp=[0]*n
-    tmp=np.ndarray(shape=(n),dtype=int)
-    tmp.fill(0)
-
-    for i in range(n):
-        tmp_=[(-1)**i*f[i] for i in range(n)]
-        for i in range(len(tmp_)):
-            tmp[i]=tmp_[i]
-
-    return poly_prod_trunc(tmp,f,n)
+# def cyclo_norm_n2(f):
+#     #norm to Cyclo_(n//2) field
+#     nn=f.shape[0]
+#     tmp=[0]*n
+#     tmp=np.ndarray(shape=(n),dtype=int)
+#     tmp.fill(0)
+#
+#     for i in range(n):
+#         tmp_=[(-1)**i*f[i] for i in range(n)]
+#         for i in range(len(tmp_)):
+#             tmp[i]=tmp_[i]
+#
+#     return poly_prod_trunc(tmp,f,n)
 
 
 def prepeare_for_gen_lattice(n,q,verbose=False,seed=1227):
@@ -224,7 +235,7 @@ def gen_lattice_full(n,q,verbose=False,seed=1227):
     return B, F, G, H
 
 
-def gen_lattice_norm(n,q,verbose=False,seed=1227):
+def gen_lattice_norm(n,q,verbose=False,seed=1227,r=2):  #prepeare norm matrix where descent index is r
     F, G, H = prepeare_for_gen_lattice(n,q,verbose, seed)
     tmp=[H[0][i] for i in range(n)]
     h=np.ndarray(shape=n, dtype=int)
@@ -232,8 +243,14 @@ def gen_lattice_norm(n,q,verbose=False,seed=1227):
     for i in range(n):
         h[i]=tmp[i]
 
-    nH=cyclo_norm_n2(h)
-    nH=np.delete(nH,[i for i in range(1,n,2)], axis=0)
+    nH=Norm(h,n//r)
+
+    del_indexes=[]
+    for i in range(n):
+        if i%r!=0:
+            del_indexes.append(i)
+
+    nH=np.delete(nH,del_indexes, axis=0)
 
     nH=to_circ(nH)
     nH=balance_matrix(nH,q)
@@ -242,30 +259,20 @@ def gen_lattice_norm(n,q,verbose=False,seed=1227):
         print(nH)
         print('- - -')
 
-    B=np.ndarray(shape=(n,n), dtype=int)
+    B=np.ndarray(shape=(2*n//r,2*n//r), dtype=int)
     B.fill(0)
-    for i in range(n):
-        B[i,i]=q if i<n//2 else 1
+    for i in range(2*n//r):
+        B[i,i]=q if i<n//r else 1
 
-    for row in range(n//2,n):
-        for col in range(n//2):
-            B[row,col]=nH[row-n//2,col]
+    for row in range(n//r,2*n//r):
+        for col in range(n//r):
+            B[row,col]=nH[row-n//r,col]
 
     return B, F, G, H
 
 np.set_printoptions(threshold=sys.maxsize,linewidth=202)
-n=8
+n=64
 q=101
-B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1337)
+B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1337, r=4)
 
 print(B)
-
-
-
-F_=cyclo_norm_n2(F[0])
-G_=cyclo_norm_n2(G[0])
-f=np.delete(F_, [i for i in range(1,n,2)], axis=0)
-g=np.delete(G_, [i for i in range(1,n,2)], axis=0)
-#
-FG=np.block([f,g])
-print(FG)
