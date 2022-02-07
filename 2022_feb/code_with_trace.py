@@ -32,55 +32,174 @@ def dim(a):
         return []
     return [len(a)] + dim(a[0])
 
-def modMatInv(A,p):       # Finds the inverse of matrix A mod p
-  n=len(A)
-  A=matrix(A)
-  adj=np.zeros(shape=(n,n), dtype=int)
-  for i in range(0,n):
-    for j in range(0,n):
-      adj[i][j]=((-1)**(i+j)*int(round(linalg.det(minor(A,j,i)))))%p
-  return (modInv(int(round(linalg.det(A))),p)*adj)%p
+def egcd(a, b):
+    if a == 0:
+        return (b, 0, 1)
+    else:
+        g, y, x = egcd(b % a, a)
+        return (g, x - (b // a) * y, y)
 
-def modInv(a,p):          # Finds the inverse of a mod p, if it exists
-  for i in range(1,p):
-    if (i*a)%p==1:
-      return i
-  raise ValueError(str(a)+" has no inverse mod "+str(p))
+def modinv(a, m):
+     g, x, y = egcd(a, m)
+     if g != 1:
+         raise ZeroDivisionError
+     else:
+         return x % m
 
-def minor(A,i,j):    # Return matrix A with the ith row and jth column deleted
-  A=np.array(A)
-  minor=np.zeros(shape=(len(A)-1,len(A)-1), dtype=int)
-  p=0
-  for s in range(0,len(minor)):
-    if p==i:
-      p=p+1
-    q=0
-    for t in range(0,len(minor)):
-      if q==j:
-        q=q+1
-      minor[s][t]=A[p][q]
-      q=q+1
-    p=p+1
-  return minor
+def modinvMat(M, q):
+    n, m = M.shape
+    assert m==n
 
-def poly_prod_trunc(s1,s2,n):   #multiplies s1 and s2 modulo x^n+1
-    res_ = [0]*(n)
-    for o1,i1 in enumerate(s1):
-        for o2,i2 in enumerate(s2):
-            ind=(o1+o2)
-            res_[(ind)%n] += i1*i2*(-1)**((ind)//(n))
-    res=np.ndarray(shape=n, dtype=int)
+    invs = q * [None]
+    for i in range(1, q):
+        try:
+            invs[i] = modinv(i, q)
+            assert((i*invs[i]) % q == 1)
+        except ZeroDivisionError:
+            pass
+
+    R = np.block([[M, np.identity(n, dtype="long")]])
+    #print(R)
+
+    # i-th column
     for i in range(n):
-        res[i]=res_[i]
-    return(res)
+        #print(i, q, R)
+        # Find a row with an invertible i-th coordinate
+        for j in range(i, n+1):
+            if j == n:
+                raise ZeroDivisionError
+
+            # Normalize the row and swap it with row j
+            if invs[R[j,i]] is not None:
+                R[j] = (R[j] * invs[R[j,i]]) % q
+
+                if j > i:
+                    R[i], R[j] = R[j], R[i]
+                break
+
+        # Kill all coordinates of that column except at row j
+        for j in range(n):
+            if i==j: continue
+            R[j] = (R[j] -  R[i] * R[j, i]) % q
+
+    #print(i, R)
+
+    Minv = R[:,n:]
+    return Minv
+
+# def modMatInv(A,p):       # Finds the inverse of matrix A mod p
+#   n=len(A)
+#   A=matrix(A)
+#   adj=np.zeros(shape=(n,n), dtype=int)
+#   for i in range(0,n):
+#     for j in range(0,n):
+#       adj[i][j]=((-1)**(i+j)*int(round(linalg.det(minor(A,j,i)))))%p
+#   return (modInv(int(round(linalg.det(A))),p)*adj)%p
+#
+# def modInv(a,p):          # Finds the inverse of a mod p, if it exists
+#   for i in range(1,p):
+#     if (i*a)%p==1:
+#       return i
+#   raise ValueError(str(a)+" has no inverse mod "+str(p))
+#
+# def minor(A,i,j):    # Return matrix A with the ith row and jth column deleted
+#   A=np.array(A)
+#   minor=np.zeros(shape=(len(A)-1,len(A)-1), dtype=int)
+#   p=0
+#   for s in range(0,len(minor)):
+#     if p==i:
+#       p=p+1
+#     q=0
+#     for t in range(0,len(minor)):
+#       if q==j:
+#         q=q+1
+#       minor[s][t]=A[p][q]
+#       q=q+1
+#     p=p+1
+#   return minor
+
+def minus_one_to_the_n(n):
+     return -1 if n%2==1 else 1
+
+# def fft(n,w,p):
+#
+#     if n==1: return p
+#
+#     a=fft(n//2,w*w,p[0::2])#even powers
+#     b=fft(n//2,w*w,p[1::2])#odd powers
+#
+#     ret=[None]*n
+#     x=1
+#     for k in range(n/2):
+#         ret[k]=a[k]+x*b[k]#p(a)
+#         ret[k+n/2]=a[k]-x*b[k]#p(−a)
+#         x*=w
+#
+#     return ret
+
+# def poly_prod_fft(n,p1,p2):
+#     #nth principal root of unity
+#     w=complex(cos(2*pi/n),sin(2*pi/n))
+#
+#     #forward transform to point value
+#     a=fft(n,w,p1)
+#     b=fft(n,w,p2)
+#
+#     #convolution
+#     p3=[a[i]*b[i]for i in range(n)]
+#
+#     #reversetransformtogetbackcoefficients
+#     final=fft(n,w**(-1),p3)
+#     return[int((x/n).real) for x in final]
+#
+# def poly_prod_trunc_fft(s1,s2,n):   #doesn't work well due to rounding
+#     p=poly_prod_fft(2*len(s1),s1,s2)
+#     tmp=n*[0]
+#     for i in range(len(tmp)):   #truncated polynomial mod x^n+1
+#         tmp[i]=p[i]-p[n+i]
+#     return np.array(tmp)
+
+# def poly_prod_trunc(s1,s2,n):   #multiplies s1 and s2 modulo x^n+1
+#     #s1, s2 = list(s1), list(s2)
+#
+#     res_ = [0]*(n)
+#     for o1,i1 in enumerate(s1):
+#         for o2,i2 in enumerate(s2):
+#             #print(i1,i2)
+#             ind=(o1+o2)
+#             res_[(ind)%n] += i1*i2*minus_one_to_the_n((ind)//(n))
+#     res=np.ndarray(shape=n, dtype=int)
+#     for i in range(n):
+#         res[i]=res_[i]
+#     return(res)
+
+def poly_prod_trunc_np(a,b):
+    n=len(a)
+    c=np.polymul(a,b)
+    c_=[c[i]-c[n+i] if n+i<len(c) else c[i] for i in range(n)]
+    return c_
 
 def sign1(x):   #singum, but sign(0)=1
     return 1 if x==0 else x//abs(x)
 
-def galois_group(n):   #returns Galois group of n-th cyclotomic field, n is power of 2
+# def galois_group(n):   #returns Galois group of n-th cyclotomic field, n is power of 2
+#     v=[i for i in range(n)]
+#     W=[]
+#     for morph in range(1,2*n,2):
+#         w=n*[0]
+#         for i in range(n):
+#             i_=(i*morph) % (2*n)
+#             sign= 1 if i_<n else -1
+#             i_=i_%n
+#             w[i_]=sign*v[i]
+#         W.append(w)
+#     return W
+
+def galois_group_relative(n,m):   #returns Galois group of L/K where L=Cyclo(2n) K=Cyclo(2m)
+    r=round( n//m )
     v=[i for i in range(n)]
     W=[]
-    for morph in range(1,2*n,2):
+    for morph in range(1,2*n,2*m):
         w=n*[0]
         for i in range(n):
             i_=(i*morph) % (2*n)
@@ -89,12 +208,6 @@ def galois_group(n):   #returns Galois group of n-th cyclotomic field, n is powe
             w[i_]=sign*v[i]
         W.append(w)
     return W
-
-def galois_group_relative(n,m):   #returns Galois group of L/K where L=Cyclo(2n) K=Cyclo(2m)
-    G=galois_group(n)
-    r=round( n//m )
-
-    return( [G[i] for i in range(0,n,n//r)])
 
 def apply_authomorphism(v, sigma):   #applies sigma \in Gal to v
     w=[ sign1(sigma[i])*v[abs( sigma[i] )] for i in range(n)]
@@ -108,12 +221,13 @@ def poly_conj(v):
 def Norm(v,m):   #returns norm over K=Cyclo(2n) of v \in L
     n=len(v)
     G=galois_group_relative(n,m)
+    print('gal group len=',len(G),m)
 
     p=[1]+(n-1)*[0]
 
     for g in G:
         v_=apply_authomorphism(v,g)
-        p=poly_prod_trunc(p,v_,n)
+        p=np.array( poly_prod_trunc_np(p,v_) )
     return(list(p))
 
 def balance_matrix(M,q):
@@ -197,12 +311,18 @@ def prepeare_for_gen_lattice(n,q,verbose=False,seed=1227):
     G=to_circ(G[0])
 
     #    H=F*G^-1
-    H=np.matmul(F,modMatInv(G,q))
+    print('Inverting Matrix...')
+    F_inv=modinvMat(F,q)
+    print('Matrix Inverted')
+    H=np.matmul(G,F_inv)
+
     H=to_circ(H[0])
 
     H=np.array(H)
     G=np.array(G)
     F=np.array(G)
+
+
 
     H=balance_matrix(H,q)
     F=balance_matrix(F,q)
@@ -271,8 +391,8 @@ def gen_lattice_norm(n,q,verbose=False,seed=1227,r=2):  #prepeare norm matrix wh
     return B, F, G, H
 
 np.set_printoptions(threshold=sys.maxsize,linewidth=202)
-n=64
-q=101
-B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1337, r=4)
+n=256
+q=1777
+B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1342, r=8)   #seed=1342 for dim 256 =1341 for dim 64 and 128
 
 print(B)
