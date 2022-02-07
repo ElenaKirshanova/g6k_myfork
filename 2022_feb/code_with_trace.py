@@ -40,10 +40,10 @@ def egcd(a, b):
         return (g, x - (b // a) * y, y)
 
 def modinv(a, m):
-     g, x, y = egcd(a, m)
-     if g != 1:
+    g, x, y = egcd(a, m)
+    if g != 1:
          raise ZeroDivisionError
-     else:
+    else:
          return x % m
 
 def modinvMat(M, q):
@@ -173,10 +173,22 @@ def minus_one_to_the_n(n):
 #         res[i]=res_[i]
 #     return(res)
 
-def poly_prod_trunc_np(a,b):
-    n=len(a)
-    c=np.polymul(a,b)
-    c_=[c[i]-c[n+i] if n+i<len(c) else c[i] for i in range(n)]
+def poly_prod_trunc_np(a,b,n):
+    if type(a)==list:   #if a, b not poly1d
+        a.reverse()
+        b.reverse()
+    elif type(a)==np.ndarray:
+        np.flip(a,0) #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        np.flip(b,0)
+
+    a, b = np.poly1d(a), np.poly1d(b)
+    c=a*b
+    c=[i for i in reversed(c.c)]
+
+    while(len(c)<2*n):
+        c.append(0)
+
+    c_=[ c[i]-c[n+i] for i in range(n)]
     return c_
 
 def sign1(x):   #singum, but sign(0)=1
@@ -221,17 +233,16 @@ def poly_conj(v):
 def Norm(v,m):   #returns norm over K=Cyclo(2n) of v \in L
     n=len(v)
     G=galois_group_relative(n,m)
-    print('gal group len=',len(G),m)
 
     p=[1]+(n-1)*[0]
 
     for g in G:
         v_=apply_authomorphism(v,g)
-        p=np.array( poly_prod_trunc_np(p,v_) )
+        p=np.array( poly_prod_trunc_np(p,v_,n) )
     return(list(p))
 
 def balance_matrix(M,q):
-
+    M=M%q
     sh=M.shape
     lensh=len(sh)
     is_vect=False
@@ -307,26 +318,20 @@ def prepeare_for_gen_lattice(n,q,verbose=False,seed=1227):
     _, F, G = gen_ntru_instance_circulant(n, q, sigmasq, seed)
 
     F=to_circ(F[0])
-
     G=to_circ(G[0])
 
-    #    H=F*G^-1
     print('Inverting Matrix...')
     F_inv=modinvMat(F,q)
     print('Matrix Inverted')
     H=np.matmul(G,F_inv)
 
+
     H=to_circ(H[0])
 
-    H=np.array(H)
-    G=np.array(G)
-    F=np.array(G)
-
-
-
-    H=balance_matrix(H,q)
-    F=balance_matrix(F,q)
-    G=balance_matrix(G,q)
+    #print('lol', balance_matrix(np.matmul(H,F),q) )
+    # H=np.array(H)
+    # G=np.array(G)
+    # F=np.array(G)
 
 
     if verbose:
@@ -373,7 +378,7 @@ def gen_lattice_norm(n,q,verbose=False,seed=1227,r=2):  #prepeare norm matrix wh
     nH=np.delete(nH,del_indexes, axis=0)
 
     nH=to_circ(nH)
-    nH=balance_matrix(nH,q)
+    #nH=balance_matrix(nH,q)
 
     if verbose:
         print(nH)
@@ -391,8 +396,24 @@ def gen_lattice_norm(n,q,verbose=False,seed=1227,r=2):  #prepeare norm matrix wh
     return B, F, G, H
 
 np.set_printoptions(threshold=sys.maxsize,linewidth=202)
-n=256
-q=1777
-B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1342, r=8)   #seed=1342 for dim 256 =1341 for dim 64 and 128
+n=16
+q=997
+B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1341, r=2)   #seed=1342 for dim 256 =1341 for dim 64 and 128
+#B, F, G, H = gen_lattice_full(n,q,seed=1345)
 
 print(B)
+print(F[0])
+print(G[0])
+print(H[0])
+print(np.matmul(H[0],F)%q)
+
+np.set_printoptions(threshold=sys.maxsize,linewidth=202)
+n=128
+q=997
+B, F, G, H = gen_lattice_norm(n,q, verbose=False, seed=1341, r=2)   #seed=1342 for dim 256 =1341 for dim 64 and 128
+
+print(B)
+print(F[0])
+print(G[0])
+print(H[0])
+print(np.matmul(H[0],F)%q)
