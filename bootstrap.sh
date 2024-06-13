@@ -54,9 +54,6 @@ ln -s g6k-env/bin/activate ./
 source ./activate
 
 $PIP install -U pip
-$PIP install Cython
-$PIP install cysignals
-
 
 cat <<EOF >>g6k-env/bin/activate
 CFLAGS="\$CFLAGS -O3 -march=native -Wp,-U_FORTIFY_SOURCE"
@@ -106,7 +103,6 @@ cd ..
 
 git clone https://github.com/fplll/fpylll g6k-fpylll
 cd g6k-fpylll || exit
-$PIP install Cython
 $PIP install -r requirements.txt
 $PIP install -r suggestions.txt
 $PYTHON setup.py clean
